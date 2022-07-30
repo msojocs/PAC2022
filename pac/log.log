@@ -1,0 +1,7 @@
+default:
+********** Kernel Time Taken **********= 62.5277 secs
+********** Total Time Taken **********= 63.5958 secs
+
+v1 替换ARRAY1D_DataType:
+********** Kernel Time Taken **********= 60.172 secs
+********** Total Time Taken **********= 61.2084 secs
