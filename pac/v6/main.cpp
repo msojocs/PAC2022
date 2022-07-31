@@ -224,6 +224,15 @@ int main(int argc, char **argv)
     return 0;
 }
 
+// void print_vec(DataType_VEC t){
+    
+//     DataType b2[8];
+//     _mm512_store_pd(b2, t);
+//     for(int i=0; i < 8; i++){
+//         printf("%lf\n", t[i]);
+//     }
+//     return ;
+// }
 void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
                       int *inv_igp_index, int *indinv,
                       DataType *wx_array,
@@ -260,30 +269,66 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
             DataType i1 = aqsntemp_a[pos1] * i0 + aqsntemp_b[pos1] * r0;
             DataType r2 = aqsmtemp_a[pos1] * r1 + aqsmtemp_b[pos1] * i1;
             DataType i2 = aqsmtemp_a[pos1] * i1 - aqsmtemp_b[pos1] * r1;
-            for (int ig = 0; ig < ncouls; ++ig)
+
+            for (int ig = 0; ig < ncouls; ig += 8)
             {
                 int pos3 = pos_base + ig;
 
                 // printf("---igp: %d, pos1: %d, pos2: %d, pos3: %d\n", igp, pos1, pos2, pos3);
 
                 DataType achtemp_re_loc[nend - nstart], achtemp_im_loc[nend - nstart];
-                // for (int iw = nstart; iw < nend; ++iw)
-                // {
-                // achtemp_re_loc[iw] = 0.00;
-                // achtemp_im_loc[iw] = 0.00;
-                // }
+                for (int iw = nstart; iw < nend; ++iw)
+                {
+                    achtemp_re_loc[iw] = 0.00;
+                    achtemp_im_loc[iw] = 0.00;
+                }
 
-                DataType b2 = wtilde_array_b[pos3] * wtilde_array_b[pos3];
+                // DataType b2 = wtilde_array_b[pos3] * wtilde_array_b[pos3];
+                DataType_VEC b2_a = _mm512_load_pd(wtilde_array_b + pos3);
+                DataType_VEC b2_v =_mm512_mul_pd(b2_a, b2_a);
+                
 #pragma unroll(3)
                 for (int iw = nstart; iw < nend; ++iw)
                 {
-                    DataType wdiff_a = wx_array[iw] - wtilde_array_a[pos3];
-                    DataType fm = wdiff_a * wdiff_a + b2;
-                    DataType delw_a = wdiff_a / fm;
-                    DataType delw_b = wtilde_array_b[pos3] / fm;
+                    // DataType wdiff_a = wx_array[iw] - wtilde_array_a[pos3];
+                    DataType_VEC wx_array_v = _mm512_set1_pd(wx_array[iw]);
+                    DataType_VEC wtilde_array_a_v = _mm512_load_pd(wtilde_array_a + pos3);
+                    DataType_VEC wdiff_a_v = _mm512_sub_pd(wx_array_v, wtilde_array_a_v);
 
-                    achtemp_re_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * r2 - (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * i2;
-                    achtemp_im_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * i2 + (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * r2;
+                    // DataType fm = wdiff_a * wdiff_a + b2;
+                    DataType_VEC fm_v = _mm512_fmadd_pd(wdiff_a_v, wdiff_a_v, b2_v);
+
+                    // DataType delw_a = wdiff_a / fm;
+                    DataType_VEC delw_a_v = _mm512_div_pd(wdiff_a_v, fm_v);
+                    // DataType delw_b = wtilde_array_b[pos3] / fm;
+                    DataType_VEC delw_b_v = _mm512_div_pd(b2_a, fm_v);
+
+                    DataType_VEC I_eps_array_a_v = _mm512_load_pd(I_eps_array_a + pos3);
+                    DataType_VEC I_eps_array_b_v = _mm512_load_pd(I_eps_array_b + pos3);
+
+                    DataType_VEC r2_v = _mm512_set1_pd(r2);
+                    DataType_VEC i2_v = _mm512_set1_pd(i2);
+
+                    DataType_VEC bb_v = _mm512_mul_pd(delw_b_v, I_eps_array_b_v);
+                    DataType_VEC ba_v = _mm512_mul_pd(delw_b_v, I_eps_array_a_v);
+
+                    DataType_VEC a_v = _mm512_fmsub_pd(delw_a_v, I_eps_array_a_v, bb_v);
+                    DataType_VEC b_v = _mm512_fmadd_pd(delw_a_v, I_eps_array_b_v, ba_v);
+                // print_vec(b_v);
+                // return;
+
+                    // achtemp_re_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * r2 - (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * i2;
+                    DataType_VEC achtemp_re_loc_v = _mm512_fmsub_pd(a_v, r2_v, _mm512_mul_pd(b_v, i2_v));
+                    DataType t[8];
+                    _mm512_store_pd(t, achtemp_re_loc_v);
+                    for(int i=0; i < 8; i++)
+                        achtemp_re_loc[iw] += t[i];
+                    
+                    // achtemp_im_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * i2 + (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * r2;
+                    DataType_VEC achtemp_im_loc_v = _mm512_fmadd_pd(a_v, i2_v, _mm512_mul_pd(b_v, r2_v));
+                    _mm512_store_pd(t, achtemp_im_loc_v);
+                    for(int i=0; i < 8; i++)
+                        achtemp_im_loc[iw] += t[i];
                 }
 
                 ach_re0 += achtemp_re_loc[0];

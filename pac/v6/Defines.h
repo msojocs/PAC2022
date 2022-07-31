@@ -3,6 +3,8 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <immintrin.h>
+
 using namespace std;
 using namespace chrono;
 
@@ -12,6 +14,7 @@ using namespace std::chrono;
 #define nend 3
 
 using DataType = double;
+using DataType_VEC = __m512d;
 
 #define ComplexType std::complex<DataType>
 

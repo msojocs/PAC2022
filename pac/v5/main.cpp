@@ -282,6 +282,8 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
                     DataType fm = wdiff_a * wdiff_a + b2;
                     DataType delw_a = wdiff_a / fm;
                     DataType delw_b = wtilde_array_b[pos3] / fm;
+                // printf("----%lf\n", delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]);
+                // return;
 
                     achtemp_re_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * r2 - (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * i2;
                     achtemp_im_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * i2 + (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * r2;
