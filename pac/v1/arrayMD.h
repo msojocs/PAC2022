@@ -34,6 +34,7 @@ struct Array1D
 
   ~Array1D()
   {
+    // std::cout << "delete" << std::endl;
     if (size && dptr)
       delete[] dptr;
   }

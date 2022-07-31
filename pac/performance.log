@@ -1,0 +1,21 @@
+(-264241149.849658,1321205773.349384) 
+(-137405397.526385,961837796.663287) 
+(-83783779.341402,754054016.892205)
+
+default:
+********** Kernel Time Taken **********= 62.5277 secs
+********** Total Time Taken **********= 63.5958 secs
+
+v1-v3 除correntess之外，替换所有Complex结构为DataType：
+********** Kernel Time Taken **********= 91.7833 secs
+********** Total Time Taken **********= 92.8171 secs
+
+v4 循环结构调整优化：
+********** Kernel Time Taken **********= 25.2021 secs
+********** Total Time Taken **********= 26.2181 secs
+
+v5 行存储读取转换为列存储读取：
+********** Kernel Time Taken **********= 5.89682 secs
+********** Total Time Taken **********= 6.82924 secs
+
+v6 SIMD:

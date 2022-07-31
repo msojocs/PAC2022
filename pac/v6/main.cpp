@@ -96,21 +96,37 @@ int main(int argc, char **argv)
     // ALLOCATE statements .
     int size = sizeof(ComplexType);
     int stepLength = nend - nstart;
-    
+
     ComplexType achtemp[stepLength];
-    memFootPrint += (stepLength) * size;
+    memFootPrint += (stepLength)*size;
 
     int tmpLength1 = number_bands * ncouls;
-    ComplexType *aqsmtemp = new ComplexType[tmpLength1];
-    ComplexType *aqsntemp = new ComplexType[tmpLength1];
+    // ComplexType *aqsmtemp = new ComplexType[tmpLength1];
+    // 2^6 = 64
+    // DataType *aqsmtemp_a = new DataType[tmpLength1];
+    // DataType *aqsmtemp_b = new DataType[tmpLength1];
+    DataType *aqsmtemp_a = (DataType*)aligned_alloc(32, sizeof(DataType) * tmpLength1 );
+    DataType *aqsmtemp_b = (DataType*)aligned_alloc(32, sizeof(DataType) * tmpLength1 );
+    // ComplexType *aqsntemp = new ComplexType[tmpLength1];
+    // DataType *aqsntemp_a = new DataType[tmpLength1];
+    // DataType *aqsntemp_b = new DataType[tmpLength1];
+    DataType *aqsntemp_a = (DataType*)aligned_alloc(32, sizeof(DataType) * tmpLength1 );
+    DataType *aqsntemp_b = (DataType*)aligned_alloc(32, sizeof(DataType) * tmpLength1 );
     memFootPrint += 2 * tmpLength1 * size;
 
     int tmpLength2 = ngpown * ncouls;
-    ComplexType* I_eps_array = new ComplexType[tmpLength2];
-    ComplexType* wtilde_array = new ComplexType[tmpLength2];
+    // ComplexType* I_eps_array = new ComplexType[tmpLength2];
+    // DataType *I_eps_array_a = new DataType[tmpLength2];
+    // DataType *I_eps_array_b = new DataType[tmpLength2];
+    DataType* I_eps_array_a = (DataType*)aligned_alloc(32, sizeof(DataType) * tmpLength2 );
+    DataType* I_eps_array_b = (DataType*)aligned_alloc(32, sizeof(DataType) * tmpLength2 );
+    // ComplexType* wtilde_array = new ComplexType[tmpLength2];
+    // DataType *wtilde_array_a = new DataType[tmpLength2];
+    // DataType *wtilde_array_b = new DataType[tmpLength2];
+    DataType* wtilde_array_a = (DataType*)aligned_alloc(32, sizeof(DataType) * tmpLength2 );
+    DataType* wtilde_array_b = (DataType*)aligned_alloc(32, sizeof(DataType) * tmpLength2 );
     memFootPrint += 2 * tmpLength2 * size;
 
-    
     DataType vcoul[ncouls];
     memFootPrint += ncouls * sizeof(DataType);
 
@@ -131,23 +147,31 @@ int main(int argc, char **argv)
     for (int i = 0; i < number_bands; i++)
         for (int j = 0; j < ncouls; j++)
         {
-            aqsmtemp[i * ncouls + j] = expr;
-            aqsntemp[i * ncouls + j] = expr;
+            int pos = i * ncouls + j;
+            aqsmtemp_a[pos] = .5;
+            aqsmtemp_b[pos] = .5;
+            // aqsmtemp[i * ncouls + j] = expr;
+            aqsntemp_a[pos] = .5;
+            aqsntemp_b[pos] = .5;
         }
 
     // 初始化赋值
+    double t = ncouls / ngpown;
     for (int i = 0; i < ngpown; i++)
+    {
+        inv_igp_index[i] = (i + 1) * t;
         for (int j = 0; j < ncouls; j++)
         {
-            I_eps_array[i * ncouls + j] = expr;
-            wtilde_array[i * ncouls + j] = expr;
+            int pos = i * ncouls + j;
+            I_eps_array_a[pos] = .5;
+            I_eps_array_b[pos] = .5;
+            wtilde_array_a[pos] = .5;
+            wtilde_array_b[pos] = .5;
         }
+    }
 
     for (int i = 0; i < ncouls; i++)
         vcoul[i] = 1.0;
-
-    for (int ig = 0; ig < ngpown; ++ig)
-        inv_igp_index[ig] = (ig + 1) * ncouls / ngpown;
 
     for (int ig = 0; ig < ncouls; ++ig)
         indinv[ig] = ig;
@@ -163,7 +187,10 @@ int main(int argc, char **argv)
     // ================Kernel Time Start=============
     k_start = system_clock::now();
     noflagOCC_solver(number_bands, ngpown, ncouls, inv_igp_index, indinv,
-                     wx_array, wtilde_array, aqsmtemp, aqsntemp, I_eps_array,
+                     wx_array, wtilde_array_a, wtilde_array_b,
+                     aqsmtemp_a, aqsmtemp_b,
+                     aqsntemp_a, aqsntemp_b,
+                     I_eps_array_a, I_eps_array_b,
                      vcoul, achtemp);
 
     // ================Kernel Time End=============
@@ -186,18 +213,25 @@ int main(int argc, char **argv)
          << " secs" << endl;
     cout << "********** Total Time Taken **********= " << elapsed.count()
          << " secs" << endl;
-    delete[] aqsmtemp;
-    delete[] aqsntemp;
-    delete[] I_eps_array;
-    delete[] wtilde_array;
+    free(aqsmtemp_a);
+    free(aqsmtemp_b);
+    free(aqsntemp_a);
+    free(aqsntemp_b);
+    free(I_eps_array_a);
+    free(I_eps_array_b);
+    free(wtilde_array_a);
+    free(wtilde_array_b);
     return 0;
 }
 
 void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
                       int *inv_igp_index, int *indinv,
-                      DataType *wx_array, ComplexType *wtilde_array,
-                      ComplexType *aqsmtemp, ComplexType *aqsntemp,
-                      ComplexType *I_eps_array, DataType *vcoul,
+                      DataType *wx_array,
+                      DataType *wtilde_array_a, DataType *wtilde_array_b,
+                      DataType *aqsmtemp_a, DataType *aqsmtemp_b,
+                      DataType *aqsntemp_a, DataType *aqsntemp_b,
+                      DataType *I_eps_array_a, DataType *I_eps_array_b,
+                      DataType *vcoul,
                       ComplexType *achtemp)
 {
     // time_point<system_clock> start, end;
@@ -208,37 +242,50 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
 
 #pragma omp parallel for reduction(+ \
                                    : ach_re0, ach_re1, ach_re2, ach_im0, ach_im1, ach_im2)
-    for (int n1 = 0; n1 < number_bands; ++n1)
+    for (int my_igp = 0; my_igp < ngpown; ++my_igp)
     {
-        for (int ig = 0; ig < ncouls; ++ig)
+        int indigp = inv_igp_index[my_igp];
+        // int indigp = (my_igp + 1) * ncouls / ngpown
+        int igp = indinv[indigp];
+        // int igp = indigp & ~ncouls ? indigp : ncouls -1;
+        int pos_base = my_igp * ncouls;
+        int pos2 = pos_base + igp;
+
+        for (int n1 = 0; n1 < number_bands; ++n1)
         {
-            for (int my_igp = 0; my_igp < ngpown; ++my_igp)
+            int pos1 = n1 * ncouls + igp;
+            for (int ig = 0; ig < ncouls; ++ig)
             {
-                int indigp = inv_igp_index[my_igp];
-                int igp = indinv[indigp];
+                int pos3 = pos_base + ig;
+
+                // printf("---igp: %d, pos1: %d, pos2: %d, pos3: %d\n", igp, pos1, pos2, pos3);
+                DataType r0 = 0.5 * vcoul[igp] * wtilde_array_a[pos2];
+                DataType i0 = 0.5 * vcoul[igp] * wtilde_array_b[pos2];
+                DataType r1 = aqsntemp_a[pos1] * r0 - aqsntemp_b[pos1] * i0;
+                DataType i1 = aqsntemp_a[pos1] * i0 + aqsntemp_b[pos1] * r0;
+                DataType r2 = aqsmtemp_a[pos1] * r1 + aqsmtemp_b[pos1] * i1;
+                DataType i2 = aqsmtemp_a[pos1] * i1 - aqsmtemp_b[pos1] * r1;
+
                 DataType achtemp_re_loc[nend - nstart], achtemp_im_loc[nend - nstart];
+                // for (int iw = nstart; iw < nend; ++iw)
+                // {
+                // achtemp_re_loc[iw] = 0.00;
+                // achtemp_im_loc[iw] = 0.00;
+                // }
+
+                DataType b2 = wtilde_array_b[pos3] * wtilde_array_b[pos3];
+#pragma unroll(3)
                 for (int iw = nstart; iw < nend; ++iw)
                 {
-                    achtemp_re_loc[iw] = 0.00;
-                    achtemp_im_loc[iw] = 0.00;
-                }
-                ComplexType sch_store1 =
-                    ComplexType_conj(aqsmtemp[n1 * ncouls + igp]) * aqsntemp[n1 * ncouls + igp] * 0.5 *
-                    vcoul[igp] * wtilde_array[my_igp * ncouls + igp];
+                    DataType wdiff_a = wx_array[iw] - wtilde_array_a[pos3];
+                    DataType fm = wdiff_a * wdiff_a + b2;
+                    DataType delw_a = wdiff_a / fm;
+                    DataType delw_b = wtilde_array_b[pos3] / fm;
 
-                for (int iw = nstart; iw < nend; ++iw)
-                {
-                    ComplexType wdiff =
-                        wx_array[iw] - wtilde_array[my_igp * ncouls + ig];
-                    ComplexType delw =
-                        ComplexType_conj(wdiff) *
-                        (1 / (wdiff * ComplexType_conj(wdiff)).real());
-                    ComplexType sch_array =
-                        delw * I_eps_array[my_igp * ncouls + ig] * sch_store1;
-
-                    achtemp_re_loc[iw] += (sch_array).real();
-                    achtemp_im_loc[iw] += (sch_array).imag();
+                    achtemp_re_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * r2 - (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * i2;
+                    achtemp_im_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * i2 + (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * r2;
                 }
+
                 ach_re0 += achtemp_re_loc[0];
                 ach_re1 += achtemp_re_loc[1];
                 ach_re2 += achtemp_re_loc[2];
