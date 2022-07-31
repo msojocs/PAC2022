@@ -251,20 +251,20 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
         int pos_base = my_igp * ncouls;
         int pos2 = pos_base + igp;
 
+        DataType r0 = 0.5 * vcoul[igp] * wtilde_array_a[pos2];
+        DataType i0 = 0.5 * vcoul[igp] * wtilde_array_b[pos2];
         for (int n1 = 0; n1 < number_bands; ++n1)
         {
             int pos1 = n1 * ncouls + igp;
+            DataType r1 = aqsntemp_a[pos1] * r0 - aqsntemp_b[pos1] * i0;
+            DataType i1 = aqsntemp_a[pos1] * i0 + aqsntemp_b[pos1] * r0;
+            DataType r2 = aqsmtemp_a[pos1] * r1 + aqsmtemp_b[pos1] * i1;
+            DataType i2 = aqsmtemp_a[pos1] * i1 - aqsmtemp_b[pos1] * r1;
             for (int ig = 0; ig < ncouls; ++ig)
             {
                 int pos3 = pos_base + ig;
 
                 // printf("---igp: %d, pos1: %d, pos2: %d, pos3: %d\n", igp, pos1, pos2, pos3);
-                DataType r0 = 0.5 * vcoul[igp] * wtilde_array_a[pos2];
-                DataType i0 = 0.5 * vcoul[igp] * wtilde_array_b[pos2];
-                DataType r1 = aqsntemp_a[pos1] * r0 - aqsntemp_b[pos1] * i0;
-                DataType i1 = aqsntemp_a[pos1] * i0 + aqsntemp_b[pos1] * r0;
-                DataType r2 = aqsmtemp_a[pos1] * r1 + aqsmtemp_b[pos1] * i1;
-                DataType i2 = aqsmtemp_a[pos1] * i1 - aqsmtemp_b[pos1] * r1;
 
                 DataType achtemp_re_loc[nend - nstart], achtemp_im_loc[nend - nstart];
                 // for (int iw = nstart; iw < nend; ++iw)
