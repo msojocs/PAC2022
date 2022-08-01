@@ -270,6 +270,10 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
             DataType r2 = aqsmtemp_a[pos1] * r1 + aqsmtemp_b[pos1] * i1;
             DataType i2 = aqsmtemp_a[pos1] * i1 - aqsmtemp_b[pos1] * r1;
 
+            DataType_VEC r2_v = _mm512_set1_pd(r2);
+            DataType_VEC i2_v = _mm512_set1_pd(i2);
+
+            // TODO: ncouls 不是8的倍数的情况
             for (int ig = 0; ig < ncouls; ig += 8)
             {
                 int pos3 = pos_base + ig;
@@ -305,9 +309,6 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
 
                     DataType_VEC I_eps_array_a_v = _mm512_load_pd(I_eps_array_a + pos3);
                     DataType_VEC I_eps_array_b_v = _mm512_load_pd(I_eps_array_b + pos3);
-
-                    DataType_VEC r2_v = _mm512_set1_pd(r2);
-                    DataType_VEC i2_v = _mm512_set1_pd(i2);
 
                     DataType_VEC bb_v = _mm512_mul_pd(delw_b_v, I_eps_array_b_v);
                     DataType_VEC ba_v = _mm512_mul_pd(delw_b_v, I_eps_array_a_v);
