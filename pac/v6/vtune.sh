@@ -1,8 +1,13 @@
 #!/bin/bash
 root_dir=$(dirname $0)
+version=$(basename $root_dir)
+
+type="uarch-exploration"
+# type="memory-access"
+
 cd $root_dir
-rm -rf hotspots hotspots.tar.gz
+rm -rf "${type}_${version}" "${type}_${version}.tar.gz"
 make all
-vtune -collect hotspots -result-dir hotspots  ./main.exe
-tar -zcf hotspots.tar.gz hotspots main.exe main.cpp main.o
-rm -rf hotspots
+vtune -collect $type -result-dir "${type}_${version}"  ./main.exe
+tar -zcf "${type}_${version}.tar.gz" "${type}_${version}" main.exe main.cpp main.o
+rm -rf "${type}_${version}"

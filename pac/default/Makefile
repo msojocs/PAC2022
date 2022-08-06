@@ -3,7 +3,7 @@ CXX=icpx
 
 gpp_obj = main.o
 
-CXXFLAGS = -Ofast -std=c++11 -qopenmp
+CXXFLAGS = -Ofast -std=c++11 -qopenmp -g
 LDFLAGS = 
 
 all: main 

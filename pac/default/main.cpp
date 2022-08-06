@@ -1,53 +1,40 @@
 #include "Defines.h"
 #include <omp.h>
 
-inline void correntess0(ComplexType result)
+inline void correntess(ComplexType result1, ComplexType result2, ComplexType result3)
 {
     double re_diff, im_diff;
-#if defined(_OPENMP)
-    re_diff = result.real() - -264241149.849658;
-    im_diff = result.imag() - 1321205773.349384;
-#else
-    re_diff = result.real() - -264241220.914570;
-    im_diff = result.imag() - 1321205332.084101;
-#endif
-
-    if (re_diff < 0.001 && im_diff < 0.001)
-        printf("\n!!!! SUCCESS - !!!! Correctness0 test passed :-D :-D\n\n");
+    int numThreads;
+#pragma omp parallel
+    {
+        int ttid = omp_get_thread_num();
+        if (ttid == 0)
+            numThreads = omp_get_num_threads();
+    }
+    printf("here are %d threads \n", numThreads);
+    if (numThreads <= 64)
+    {
+        re_diff = fabs(result1.real() - -264241151.454552);
+        im_diff = fabs(result1.imag() - 1321205770.975190);
+        re_diff += fabs(result2.real() - -137405397.758745);
+        im_diff += fabs(result2.imag() - 961837795.884157);
+        re_diff += fabs(result3.real() - -83783779.241634);
+        im_diff += fabs(result3.imag() - 754054017.424472);
+        printf("%f,%f\n", re_diff, im_diff);
+    }
     else
-        printf("\n!!!! FAILURE - Correctness0 test failed :-( :-(  \n");
-}
-inline void correntess1(ComplexType result)
-{
-    double re_diff, im_diff;
-#if defined(_OPENMP)
-    re_diff = result.real() - -137405397.526385;
-    im_diff = result.imag() - 961837796.663287;
-#else
-    re_diff = result.real() - -137405347.711812;
-    im_diff = result.imag() - 961837565.274272;
-#endif
-
-    if (re_diff < 0.001 && im_diff < 0.001)
-        printf("\n!!!! SUCCESS - !!!! Correctness1 test passed :-D :-D\n\n");
+    {
+        re_diff = fabs(result1.real() - -264241151.200123);
+        im_diff = fabs(result1.imag() - 1321205763.246570);
+        re_diff += fabs(result2.real() - -137405398.773852);
+        im_diff += fabs(result2.imag() - 961837794.726070);
+        re_diff += fabs(result3.real() - -83783779.939936);
+        im_diff += fabs(result3.imag() - 754054018.099450);
+    }
+    if (re_diff < 10 && im_diff < 10)
+        printf("\n!!!! SUCCESS - !!!! Correctness test passed :-D :-D\n\n");
     else
-        printf("\n!!!! FAILURE - Correctness1 test failed :-( :-(  \n");
-}
-inline void correntess2(ComplexType result)
-{
-    double re_diff, im_diff;
-#if defined(_OPENMP)
-    re_diff = result.real() - -83783779.341402;
-    im_diff = result.imag() - 754054016.892205;
-#else
-    re_diff = result.real() - -83783738.477494;
-    im_diff = result.imag() - 754053587.004141;
-#endif
-
-    if (re_diff < 0.001 && im_diff < 0.001)
-        printf("\n!!!! SUCCESS - !!!! Correctness2 test passed :-D :-D\n\n");
-    else
-        printf("\n!!!! FAILURE - Correctness2 test failed :-( :-(  \n");
+        printf("\n!!!! FAILURE - Correctness test failed :-( :-(  \n");
 }
 
 // 主函数
@@ -175,9 +162,7 @@ int main(int argc, char **argv)
     elapsedKernelTimer = elapsed.count();
 
     // Check for correctness
-    correntess0(achtemp(0));
-    correntess1(achtemp(1));
-    correntess2(achtemp(2));
+    correntess(achtemp(0), achtemp(1), achtemp(2));
     printf("\n Final achtemp\n");
     ComplexType_print(achtemp(0));
     ComplexType_print(achtemp(1));

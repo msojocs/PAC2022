@@ -132,6 +132,7 @@ int main(int argc, char **argv)
 
     int inv_igp_index[ngpown];
     int indinv[ncouls + 1];
+
     memFootPrint += ngpown * sizeof(int);
     memFootPrint += (ncouls + 1) * sizeof(int);
 
@@ -142,33 +143,39 @@ int main(int argc, char **argv)
     cout << "Memory Foot Print = " << memFootPrint / pow(1024, 3) << " GBs"
          << endl;
 
-    ComplexType expr(.5, .5);
     // 初始化赋值
-    for (int i = 0; i < number_bands; i++)
+    for (size_t i = 0; i < number_bands; i++){
+        int base = i * ncouls;
+        
         for (int j = 0; j < ncouls; j++)
         {
-            int pos = i * ncouls + j;
+            int pos = base + j;
             aqsmtemp_a[pos] = .5;
             aqsmtemp_b[pos] = .5;
             // aqsmtemp[i * ncouls + j] = expr;
             aqsntemp_a[pos] = .5;
             aqsntemp_b[pos] = .5;
         }
+    }
 
     // 初始化赋值
     double t = ncouls / ngpown;
-    for (int i = 0; i < ngpown; i++)
+    for (size_t i = 0; i < ngpown; i++)
     {
         inv_igp_index[i] = (i + 1) * t;
+        int base = i * ncouls;
+        #pragma unroll(100)
         for (int j = 0; j < ncouls; j++)
         {
-            int pos = i * ncouls + j;
+            int pos = base + j;
+            // printf("pos: %d\n", pos);
             I_eps_array_a[pos] = .5;
             I_eps_array_b[pos] = .5;
             wtilde_array_a[pos] = .5;
             wtilde_array_b[pos] = .5;
         }
     }
+    // return;
 
     for (int i = 0; i < ncouls; i++)
         vcoul[i] = 1.0;
@@ -177,9 +184,11 @@ int main(int argc, char **argv)
         indinv[ig] = ig;
     indinv[ncouls] = ncouls - 1;
 
+    DataType base = e_lk - e_n1kq - dw * 2 + dw;
     for (int iw = nstart; iw < nend; ++iw)
     {
-        wx_array[iw] = e_lk - e_n1kq + dw * ((iw + 1) - 2);
+        // wx_array[iw] = e_lk - e_n1kq + dw * ((iw + 1) - 2);
+        wx_array[iw] = base + dw * iw;
         if (wx_array[iw] < to1)
             wx_array[iw] = to1;
     }
@@ -251,7 +260,7 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
 
 #pragma omp parallel for reduction(+ \
                                    : ach_re0, ach_re1, ach_re2, ach_im0, ach_im1, ach_im2)
-    for (int my_igp = 0; my_igp < ngpown; ++my_igp)
+    for (size_t my_igp = 0; my_igp < ngpown; ++my_igp)
     {
         int indigp = inv_igp_index[my_igp];
         // int indigp = (my_igp + 1) * ncouls / ngpown
@@ -262,26 +271,38 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
 
         DataType r0 = 0.5 * vcoul[igp] * wtilde_array_a[pos2];
         DataType i0 = 0.5 * vcoul[igp] * wtilde_array_b[pos2];
-        for (int n1 = 0; n1 < number_bands; ++n1)
+        DataType_VEC r0_v = _mm512_set1_pd(r0);
+        DataType_VEC i0_v = _mm512_set1_pd(i0);
+
+        for (size_t n1 = 0; n1 < number_bands; ++n1)
         {
             int pos1 = n1 * ncouls + igp;
-            DataType r1 = aqsntemp_a[pos1] * r0 - aqsntemp_b[pos1] * i0;
-            DataType i1 = aqsntemp_a[pos1] * i0 + aqsntemp_b[pos1] * r0;
-            DataType r2 = aqsmtemp_a[pos1] * r1 + aqsmtemp_b[pos1] * i1;
-            DataType i2 = aqsmtemp_a[pos1] * i1 - aqsmtemp_b[pos1] * r1;
+            DataType_VEC aqsntemp_a_v = _mm512_set1_pd(aqsntemp_a[pos1]);
+            DataType_VEC aqsntemp_b_v = _mm512_set1_pd(aqsntemp_b[pos1]);
+            DataType_VEC r1_v = _mm512_fmsub_pd(aqsntemp_a_v, r0_v, _mm512_mul_pd(aqsntemp_b_v, i0_v));
+            DataType_VEC i1_v = _mm512_fmadd_pd(aqsntemp_a_v, i0_v, _mm512_mul_pd(aqsntemp_b_v, r0_v));
 
-            DataType_VEC r2_v = _mm512_set1_pd(r2);
-            DataType_VEC i2_v = _mm512_set1_pd(i2);
+            DataType_VEC aqsmtemp_a_v = _mm512_set1_pd(aqsmtemp_a[pos1]);
+            DataType_VEC aqsmtemp_b_v = _mm512_set1_pd(aqsmtemp_b[pos1]);
+            DataType_VEC r2_v = _mm512_fmadd_pd(aqsmtemp_a_v, r1_v, _mm512_mul_pd(aqsmtemp_b_v, i1_v));
+            DataType_VEC i2_v = _mm512_fmsub_pd(aqsmtemp_a_v, i1_v, _mm512_mul_pd(aqsmtemp_b_v, r1_v));
+
+            // DataType r1 = aqsntemp_a[pos1] * r0 - aqsntemp_b[pos1] * i0;
+            // DataType i1 = aqsntemp_a[pos1] * i0 + aqsntemp_b[pos1] * r0;
+            // DataType r2 = aqsmtemp_a[pos1] * r1 + aqsmtemp_b[pos1] * i1;
+            // DataType i2 = aqsmtemp_a[pos1] * i1 - aqsmtemp_b[pos1] * r1;
+            // DataType_VEC r2_v = _mm512_set1_pd(r2);
+            // DataType_VEC i2_v = _mm512_set1_pd(i2);
 
             // TODO: ncouls 不是8的倍数的情况
-            for (int ig = 0; ig < ncouls; ig += 8)
+            for (size_t ig = 0; ig < ncouls; ig += 8)
             {
                 int pos3 = pos_base + ig;
 
                 // printf("---igp: %d, pos1: %d, pos2: %d, pos3: %d\n", igp, pos1, pos2, pos3);
 
                 DataType achtemp_re_loc[nend - nstart], achtemp_im_loc[nend - nstart];
-                for (int iw = nstart; iw < nend; ++iw)
+                for (size_t iw = nstart; iw < nend; ++iw)
                 {
                     achtemp_re_loc[iw] = 0.00;
                     achtemp_im_loc[iw] = 0.00;
@@ -290,13 +311,14 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
                 // DataType b2 = wtilde_array_b[pos3] * wtilde_array_b[pos3];
                 DataType_VEC b2_a = _mm512_load_pd(wtilde_array_b + pos3);
                 DataType_VEC b2_v =_mm512_mul_pd(b2_a, b2_a);
-                
-#pragma unroll(3)
-                for (int iw = nstart; iw < nend; ++iw)
+            
+                DataType_VEC wtilde_array_a_v = _mm512_load_pd(wtilde_array_a + pos3);
+                DataType_VEC I_eps_array_a_v = _mm512_load_pd(I_eps_array_a + pos3);
+                DataType_VEC I_eps_array_b_v = _mm512_load_pd(I_eps_array_b + pos3);
+                for (size_t iw = nstart; iw < nend; ++iw)
                 {
                     // DataType wdiff_a = wx_array[iw] - wtilde_array_a[pos3];
                     DataType_VEC wx_array_v = _mm512_set1_pd(wx_array[iw]);
-                    DataType_VEC wtilde_array_a_v = _mm512_load_pd(wtilde_array_a + pos3);
                     DataType_VEC wdiff_a_v = _mm512_sub_pd(wx_array_v, wtilde_array_a_v);
 
                     // DataType fm = wdiff_a * wdiff_a + b2;
@@ -307,16 +329,12 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
                     // DataType delw_b = wtilde_array_b[pos3] / fm;
                     DataType_VEC delw_b_v = _mm512_div_pd(b2_a, fm_v);
 
-                    DataType_VEC I_eps_array_a_v = _mm512_load_pd(I_eps_array_a + pos3);
-                    DataType_VEC I_eps_array_b_v = _mm512_load_pd(I_eps_array_b + pos3);
 
                     DataType_VEC bb_v = _mm512_mul_pd(delw_b_v, I_eps_array_b_v);
                     DataType_VEC ba_v = _mm512_mul_pd(delw_b_v, I_eps_array_a_v);
 
                     DataType_VEC a_v = _mm512_fmsub_pd(delw_a_v, I_eps_array_a_v, bb_v);
                     DataType_VEC b_v = _mm512_fmadd_pd(delw_a_v, I_eps_array_b_v, ba_v);
-                // print_vec(b_v);
-                // return;
 
                     // achtemp_re_loc[iw] = (delw_a * I_eps_array_a[pos3] - delw_b * I_eps_array_b[pos3]) * r2 - (delw_a * I_eps_array_b[pos3] + delw_b * I_eps_array_a[pos3]) * i2;
                     DataType_VEC achtemp_re_loc_v = _mm512_fmsub_pd(a_v, r2_v, _mm512_mul_pd(b_v, i2_v));
@@ -335,6 +353,7 @@ void noflagOCC_solver(size_t number_bands, size_t ngpown, size_t ncouls,
                 ach_re0 += achtemp_re_loc[0];
                 ach_re1 += achtemp_re_loc[1];
                 ach_re2 += achtemp_re_loc[2];
+
                 ach_im0 += achtemp_im_loc[0];
                 ach_im1 += achtemp_im_loc[1];
                 ach_im2 += achtemp_im_loc[2];

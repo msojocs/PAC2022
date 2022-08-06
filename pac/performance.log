@@ -18,6 +18,10 @@ v5 行存储读取转换为列存储读取：
 ********** Kernel Time Taken **********= 5.89682 secs
 ********** Total Time Taken **********= 6.82924 secs
 
-v6 部分SIMD:
-********** Kernel Time Taken **********= 3.81652 secs
-********** Total Time Taken **********= 4.69398 secs
+v6 SIMD:
+********** Kernel Time Taken **********= 3.94935 secs
+********** Total Time Taken **********= 4.73719 secs
+
+v7 除法优化:
+********** Kernel Time Taken **********= 2.78971 secs
+********** Total Time Taken **********= 3.50224 secs
